@@ -1,6 +1,37 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
+      <div class="border-b border-gray-200 dark:border-dark-600">
+        <nav class="-mb-px flex gap-6" role="tablist" aria-label="Usage tabs">
+          <button
+            data-test="tab-records"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'records'"
+            class="border-b-2 px-1 py-3 text-sm font-medium transition-colors"
+            :class="activeTab === 'records'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+            @click="setActiveTab('records')"
+          >
+            {{ t('admin.usage.recordsTab') }}
+          </button>
+          <button
+            data-test="tab-user-summary"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === 'user-summary'"
+            class="border-b-2 px-1 py-3 text-sm font-medium transition-colors"
+            :class="activeTab === 'user-summary'
+              ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+              : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'"
+            @click="setActiveTab('user-summary')"
+          >
+            {{ t('admin.usage.userSummary.tab') }}
+          </button>
+        </nav>
+      </div>
+      <template v-if="activeTab === 'records'">
       <UsageStatsCards :stats="usageStats" />
       <!-- Charts Section -->
       <div class="space-y-4">
@@ -111,6 +142,12 @@
         @userClick="handleUserClick"
       />
       <Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
+      </template>
+      <UserUsageSummaryTab
+        v-else
+        :start-date="startDate"
+        :end-date="endDate"
+      />
     </div>
   </AppLayout>
   <UsageExportProgress :show="exportProgress.show" :progress="exportProgress.progress" :current="exportProgress.current" :total="exportProgress.total" :estimated-time="exportProgress.estimatedTime" @cancel="cancelExport" />
@@ -134,7 +171,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'; import { adminAPI } from '@/api/admin'; import { adminUsageAPI } from '@/api/admin/usage'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatReasoningEffort } from '@/utils/format'
@@ -143,6 +180,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'; import Pagination fro
 import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageTable from '@/components/admin/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UsageCleanupDialog from '@/components/admin/usage/UsageCleanupDialog.vue'
+import UserUsageSummaryTab from '@/components/admin/usage/UserUsageSummaryTab.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'; import GroupDistributionChart from '@/components/charts/GroupDistributionChart.vue'; import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
@@ -154,7 +192,20 @@ const appStore = useAppStore()
 type DistributionMetric = 'tokens' | 'actual_cost'
 type EndpointSource = 'inbound' | 'upstream' | 'path'
 type ModelDistributionSource = 'requested' | 'upstream' | 'mapping'
+type UsageTab = 'records' | 'user-summary'
 const route = useRoute()
+const router = useRouter()
+const activeTab = ref<UsageTab>('records')
+const parseTab = (value: unknown): UsageTab => value === 'user-summary' ? 'user-summary' : 'records'
+const setActiveTab = (tab: UsageTab) => {
+  activeTab.value = tab
+  void router.replace({
+    query: {
+      ...route.query,
+      tab
+    }
+  })
+}
 const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const exporting = ref(false)
 const trendData = ref<TrendDataPoint[]>([]); const requestedModelStats = ref<ModelStat[]>([]); const upstreamModelStats = ref<ModelStat[]>([]); const mappingModelStats = ref<ModelStat[]>([]); const groupStats = ref<GroupStat[]>([]); const chartsLoading = ref(false); const modelStatsLoading = ref(false); const granularity = ref<'day' | 'hour'>('hour')
 const modelDistributionMetric = ref<DistributionMetric>('tokens')
@@ -246,6 +297,7 @@ const getNumericQueryValue = (value: string | null | Array<string | null> | unde
 }
 
 const applyRouteQueryFilters = () => {
+  activeTab.value = parseTab(route.query.tab)
   const queryStartDate = getSingleQueryValue(route.query.start_date)
   const queryEndDate = getSingleQueryValue(route.query.end_date)
   const queryUserId = getNumericQueryValue(route.query.user_id)
@@ -264,6 +316,12 @@ const applyRouteQueryFilters = () => {
     end_date: endDate.value
   }
   granularity.value = getGranularityForRange(startDate.value, endDate.value)
+}
+
+const syncRecordsRouteQuery = () => {
+  applyRouteQueryFilters()
+  if (activeTab.value !== 'records') return
+  applyFilters()
 }
 
 const onDateRangeChange = (range: { startDate: string; endDate: string; preset: string | null }) => {
@@ -611,4 +669,9 @@ onUnmounted(() => { abortController?.abort(); exportAbortController?.abort(); do
 watch(modelDistributionSource, (source) => {
   void loadModelStats(source)
 })
+
+watch(
+  () => [route.query.tab, route.query.user_id, route.query.start_date, route.query.end_date],
+  syncRecordsRouteQuery
+)
 </script>

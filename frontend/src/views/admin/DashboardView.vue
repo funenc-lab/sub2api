@@ -264,6 +264,7 @@
               :start-date="startDate"
               :end-date="endDate"
               @ranking-click="goToUserUsage"
+              @ranking-details-click="goToUserUsageSummary"
             />
             <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
           </div>
@@ -560,6 +561,17 @@ const goToUserUsage = (item: UserSpendingRankingItem) => {
     path: '/admin/usage',
     query: {
       user_id: String(item.user_id),
+      start_date: startDate.value,
+      end_date: endDate.value
+    }
+  })
+}
+
+const goToUserUsageSummary = () => {
+  void router.push({
+    path: '/admin/usage',
+    query: {
+      tab: 'user-summary',
       start_date: startDate.value,
       end_date: endDate.value
     }

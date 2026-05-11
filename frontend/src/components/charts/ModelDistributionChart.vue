@@ -7,6 +7,14 @@
           : t('admin.dashboard.spendingRankingTitle') }}
       </h3>
       <div class="flex flex-wrap items-center justify-end gap-2">
+        <button
+          v-if="enableRankingView && activeView === 'spending_ranking'"
+          type="button"
+          class="btn btn-secondary btn-sm ml-auto"
+          @click="emit('ranking-details-click')"
+        >
+          {{ t('admin.dashboard.userUsageSummary.viewDetails') }}
+        </button>
         <div
           v-if="showSourceToggle"
           class="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 dark:border-gray-700 dark:bg-dark-800"
@@ -325,6 +333,7 @@ const emit = defineEmits<{
   'update:metric': [value: DistributionMetric]
   'update:source': [value: ModelSource]
   'ranking-click': [item: UserSpendingRankingItem]
+  'ranking-details-click': []
 }>()
 
 const enableRankingView = computed(() => props.enableRankingView)

@@ -13,6 +13,7 @@ const messages: Record<string, string> = {
   'admin.dashboard.spendingRankingTokens': 'Tokens',
   'admin.dashboard.spendingRankingSpend': 'Spend',
   'admin.dashboard.spendingRankingOther': 'Others',
+  'admin.dashboard.userUsageSummary.viewDetails': 'View details',
   'admin.dashboard.model': 'Model',
   'admin.dashboard.requests': 'Requests',
   'admin.dashboard.tokens': 'Tokens',
@@ -53,6 +54,7 @@ describe('ModelDistributionChart', () => {
       total_tokens: 1000,
       cost: 1.5,
       actual_cost: 0.2,
+      account_cost: 0.3,
     },
     {
       model: 'model-b',
@@ -64,6 +66,7 @@ describe('ModelDistributionChart', () => {
       total_tokens: 500,
       cost: 0.5,
       actual_cost: 1.4,
+      account_cost: 0.6,
     },
   ]
 
@@ -167,5 +170,35 @@ describe('ModelDistributionChart', () => {
     expect(rows[2].text()).toContain('4')
     expect(rows[2].text()).toContain('400')
     expect(rows[2].text()).toContain('$10.00')
+  })
+
+  it('emits ranking details click from the spending ranking view', async () => {
+    const wrapper = mount(ModelDistributionChart, {
+      props: {
+        modelStats: [],
+        enableRankingView: true,
+        rankingItems: [
+          { user_id: 1, email: 'alpha@example.com', actual_cost: 12, requests: 10, tokens: 1000 }
+        ],
+        rankingTotalActualCost: 12,
+        rankingTotalRequests: 10,
+        rankingTotalTokens: 1000
+      },
+      global: {
+        stubs: {
+          LoadingSpinner: true
+        }
+      }
+    })
+
+    const rankingButton = wrapper.findAll('button').find((button) => button.text() === 'User Spending Ranking')
+    expect(rankingButton).toBeTruthy()
+    await rankingButton!.trigger('click')
+
+    const detailsButton = wrapper.findAll('button').find((button) => button.text() === 'View details')
+    expect(detailsButton).toBeTruthy()
+    await detailsButton!.trigger('click')
+
+    expect(wrapper.emitted('ranking-details-click')).toHaveLength(1)
   })
 })

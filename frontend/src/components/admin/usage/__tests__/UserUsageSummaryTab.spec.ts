@@ -202,6 +202,68 @@ describe('UserUsageSummaryTab', () => {
     expect(chartText).not.toContain('"usage.accountCost (USD)"')
   })
 
+  it('sorts each bar chart by its own metric', async () => {
+    getUserBreakdown.mockResolvedValueOnce({
+      users: [
+        {
+          user_id: 1,
+          email: 'cost-leader@example.com',
+          requests: 3,
+          total_tokens: 300_000,
+          cost: 8,
+          actual_cost: 8,
+          account_cost: 1
+        },
+        {
+          user_id: 2,
+          email: 'request-leader@example.com',
+          requests: 90,
+          total_tokens: 500_000,
+          cost: 2,
+          actual_cost: 2,
+          account_cost: 1
+        },
+        {
+          user_id: 3,
+          email: 'token-leader@example.com',
+          requests: 7,
+          total_tokens: 4_000_000,
+          cost: 3,
+          actual_cost: 3,
+          account_cost: 1
+        }
+      ]
+    })
+
+    const wrapper = mountTab()
+    await flushPromises()
+
+    const requestChart = JSON.parse(wrapper.find('[data-test="chart-card-request-distribution"] .bar').text())
+    const tokenChart = JSON.parse(wrapper.find('[data-test="chart-card-token-distribution"] .bar').text())
+    const costChart = JSON.parse(wrapper.find('[data-test="chart-card-cost-comparison"] .bar').text())
+
+    expect(requestChart.data.labels).toEqual([
+      'request-leader@example.com',
+      'token-leader@example.com',
+      'cost-leader@example.com'
+    ])
+    expect(requestChart.data.datasets[0].data).toEqual([90, 7, 3])
+
+    expect(tokenChart.data.labels).toEqual([
+      'token-leader@example.com',
+      'request-leader@example.com',
+      'cost-leader@example.com'
+    ])
+    expect(tokenChart.data.datasets[0].data).toEqual([4, 0.5, 0.3])
+
+    expect(costChart.data.labels).toEqual([
+      'cost-leader@example.com',
+      'token-leader@example.com',
+      'request-leader@example.com'
+    ])
+    expect(costChart.data.datasets[0].data).toEqual([8, 3, 2])
+  })
+
   it('groups long-tail users into other users in cost distribution', async () => {
     getUserBreakdown.mockResolvedValueOnce({
       users: Array.from({ length: 10 }, (_, index) => ({

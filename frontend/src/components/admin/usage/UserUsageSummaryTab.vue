@@ -402,8 +402,14 @@ const pagedRows = computed(() => {
   return displayRows.value.slice(start, start + pageSize.value)
 })
 
-const chartRows = computed(() => displayRows.value.slice(0, 20))
-const chartLabels = computed(() => chartRows.value.map((row) => row.email || `#${row.user_id}`))
+const chartRowLimit = 20
+const getUserLabel = (row: DisplayRow) => row.email || `#${row.user_id}`
+const topRowsBy = (metric: 'requests' | 'total_tokens' | 'actual_cost') =>
+  computed(() => [...displayRows.value].sort((a, b) => b[metric] - a[metric]).slice(0, chartRowLimit))
+
+const requestChartRows = topRowsBy('requests')
+const tokenChartRows = topRowsBy('total_tokens')
+const costChartRows = topRowsBy('actual_cost')
 const COST_DISTRIBUTION_TOP_COUNT = 8
 
 const palette = [
@@ -458,12 +464,12 @@ const actualCostDistributionData = computed(() => ({
 }))
 
 const requestDistributionData = computed(() => ({
-  labels: chartLabels.value,
+  labels: requestChartRows.value.map(getUserLabel),
   datasets: [
     {
       label: `${t('usage.totalRequests')} (${t('admin.usage.userSummary.requestsUnit')})`,
       unit: 'requests',
-      data: chartRows.value.map((row) => row.requests),
+      data: requestChartRows.value.map((row) => row.requests),
       backgroundColor: '#2563eb',
       borderRadius: 6,
       maxBarThickness: 18
@@ -472,12 +478,12 @@ const requestDistributionData = computed(() => ({
 }))
 
 const tokenDistributionData = computed(() => ({
-  labels: chartLabels.value,
+  labels: tokenChartRows.value.map(getUserLabel),
   datasets: [
     {
       label: `${t('usage.totalTokens')} (M)`,
       unit: 'M tokens',
-      data: chartRows.value.map((row) => Number((row.total_tokens / 1_000_000).toFixed(2))),
+      data: tokenChartRows.value.map((row) => Number((row.total_tokens / 1_000_000).toFixed(2))),
       backgroundColor: '#16a34a',
       borderRadius: 6,
       maxBarThickness: 18
@@ -486,12 +492,12 @@ const tokenDistributionData = computed(() => ({
 }))
 
 const costComparisonData = computed(() => ({
-  labels: chartLabels.value,
+  labels: costChartRows.value.map(getUserLabel),
   datasets: [
     {
       label: `${t('usage.actualCost')} (USD)`,
       unit: 'USD',
-      data: chartRows.value.map((row) => row.actual_cost),
+      data: costChartRows.value.map((row) => row.actual_cost),
       backgroundColor: '#0f766e',
       borderRadius: 6,
       maxBarThickness: 14
